@@ -29,7 +29,7 @@ import (
 	"github.com/panjf2000/gnet/internal/netpoll"
 	"golang.org/x/sys/unix"
 )
-
+// 接收新的客户端连接
 func (svr *server) acceptNewConnection(fd int) error {
 	nfd, sa, err := unix.Accept(fd)
 	if err != nil {
@@ -38,15 +38,20 @@ func (svr *server) acceptNewConnection(fd int) error {
 		}
 		return errors.ErrAcceptSocket
 	}
+	// 设置非阻塞
 	if err = os.NewSyscallError("fcntl nonblock", unix.SetNonblock(nfd, true)); err != nil {
 		return err
 	}
 
 	netAddr := netpoll.SockaddrToTCPOrUnixAddr(sa)
+	// 负载均衡，找到合适的subReactor
 	el := svr.lb.next(netAddr)
+	// 封装新的链接
 	c := newTCPConn(nfd, el, sa, netAddr)
 
+	// 最后将conn交给subReactor管理
 	_ = el.poller.Trigger(func() (err error) {
+		// 注册读事件
 		if err = el.poller.AddRead(nfd); err != nil {
 			return
 		}

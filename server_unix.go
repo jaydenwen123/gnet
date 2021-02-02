@@ -36,16 +36,20 @@ import (
 
 type server struct {
 	ln           *listener          // the listener for accepting new connections
+	// 这个复杂均衡里面存放的是subReactors。
 	lb           loadBalancer       // event-loops for handling events
 	wg           sync.WaitGroup     // event-loop close WaitGroup
 	opts         *Options           // options with server
 	once         sync.Once          // make sure only signalShutdown once
 	cond         *sync.Cond         // shutdown signaler
+	// 编解码器
 	codec        ICodec             // codec for TCP stream
 	logger       logging.Logger     // customized logger for logging info
 	ticktock     chan time.Duration // ticker channel
+	// mainReactor，主要负责接收客户端连接
 	mainLoop     *eventloop         // main event-loop for accepting connections
 	inShutdown   int32              // whether the server is in shutdown
+	// 事件处理器
 	eventHandler EventHandler       // user eventHandler
 }
 
@@ -71,16 +75,7 @@ func (svr *server) signalShutdown() {
 	})
 }
 
-func (svr *server) startEventLoops() {
-	svr.lb.iterate(func(i int, el *eventloop) bool {
-		svr.wg.Add(1)
-		go func() {
-			el.loopRun(svr.opts.LockOSThread)
-			svr.wg.Done()
-		}()
-		return true
-	})
-}
+
 
 func (svr *server) closeEventLoops() {
 	svr.lb.iterate(func(i int, el *eventloop) bool {
@@ -99,12 +94,14 @@ func (svr *server) startSubReactors() {
 		return true
 	})
 }
-
+// udp的话会走到这个
 func (svr *server) activateEventLoops(numEventLoop int) (err error) {
 	// Create loops locally and bind the listeners.
 	for i := 0; i < numEventLoop; i++ {
 		l := svr.ln
+		// udp
 		if i > 0 && svr.opts.ReusePort {
+			// 多个listener，监听同一个地址和端口
 			if l, err = initListener(svr.ln.network, svr.ln.addr, svr.ln.reusePort); err != nil {
 				return
 			}
@@ -133,10 +130,24 @@ func (svr *server) activateEventLoops(numEventLoop int) (err error) {
 	return
 }
 
+func (svr *server) startEventLoops() {
+	// 遍历所有的subReactor，然后监听读写事件
+	svr.lb.iterate(func(i int, el *eventloop) bool {
+		svr.wg.Add(1)
+		go func() {
+			// 开始监听事件
+			el.loopRun(svr.opts.LockOSThread)
+			svr.wg.Done()
+		}()
+		return true
+	})
+}
+
 func (svr *server) activateReactors(numEventLoop int) error {
 	for i := 0; i < numEventLoop; i++ {
 		if p, err := netpoll.OpenPoller(); err == nil {
 			el := new(eventloop)
+			// 这儿listener是同一个，没啥关系，因为其他的actor不会监听客户端连接
 			el.ln = svr.ln
 			el.svr = svr
 			el.poller = p
@@ -150,18 +161,22 @@ func (svr *server) activateReactors(numEventLoop int) error {
 		}
 	}
 
+	// 开始所有的subReactor
 	// Start sub reactors in background.
 	svr.startSubReactors()
 
+	// epoll_create()
 	if p, err := netpoll.OpenPoller(); err == nil {
 		el := new(eventloop)
 		el.ln = svr.ln
 		el.idx = -1
 		el.poller = p
 		el.svr = svr
+		// 注册读事件，接收客户端连接
 		_ = el.poller.AddRead(el.ln.fd)
 		svr.mainLoop = el
 
+		// 开始mainReactor
 		// Start main reactor in background.
 		svr.wg.Add(1)
 		go func() {
@@ -176,7 +191,9 @@ func (svr *server) activateReactors(numEventLoop int) error {
 }
 
 func (svr *server) start(numEventLoop int) error {
+	// udp或者端口重用的的话直接activateEventLoops
 	if svr.opts.ReusePort || svr.ln.network == "udp" {
+		// 这个里面每个actor都可以接收客户端的连接，具体在loop_bsd的handleEvent中有体现loopAccept
 		return svr.activateEventLoops(numEventLoop)
 	}
 
@@ -231,6 +248,7 @@ func serve(eventHandler EventHandler, listener *listener, options *Options, prot
 	svr.eventHandler = eventHandler
 	svr.ln = listener
 
+	// 选择负责均衡策略
 	switch options.LB {
 	case RoundRobin:
 		svr.lb = new(roundRobinLoadBalancer)
@@ -264,6 +282,7 @@ func serve(eventHandler EventHandler, listener *listener, options *Options, prot
 		return nil
 	}
 
+	// 调用start，开启所有的reactor
 	if err := svr.start(numEventLoop); err != nil {
 		svr.closeEventLoops()
 		svr.logger.Errorf("gnet server is stopping with error: %v", err)

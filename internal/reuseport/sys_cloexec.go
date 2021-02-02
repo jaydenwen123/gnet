@@ -30,6 +30,7 @@ import (
 
 func sysSocket(family, sotype, proto int) (fd int, err error) {
 	syscall.ForkLock.RLock()
+	// socket
 	if fd, err = unix.Socket(family, sotype, proto); err == nil {
 		unix.CloseOnExec(fd)
 	}
@@ -39,6 +40,7 @@ func sysSocket(family, sotype, proto int) (fd int, err error) {
 		return
 	}
 
+	// 设置非阻塞
 	if err = unix.SetNonblock(fd, true); err != nil {
 		_ = unix.Close(fd)
 	}

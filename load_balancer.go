@@ -56,6 +56,7 @@ type (
 	}
 
 	// roundRobinLoadBalancer with Round-Robin algorithm.
+	// 轮询算法
 	roundRobinLoadBalancer struct {
 		nextLoopIndex int
 		eventLoops    []*eventloop
@@ -63,6 +64,7 @@ type (
 	}
 
 	// leastConnectionsLoadBalancer with Least-Connections algorithm.
+	// 最小连接算法
 	leastConnectionsLoadBalancer struct {
 		sync.RWMutex
 		minHeap                 minEventLoopHeap
@@ -72,6 +74,7 @@ type (
 	}
 
 	// sourceAddrHashLoadBalancer with Hash algorithm.
+	// 源地址hash
 	sourceAddrHashLoadBalancer struct {
 		eventLoops []*eventloop
 		size       int
@@ -139,10 +142,13 @@ func (h *minEventLoopHeap) Push(x interface{}) {
 
 func (h *minEventLoopHeap) Pop() interface{} {
 	old := *h
+	// 最后一个
 	i := len(old) - 1
 	x := old[i]
+	// 释放元素对象
 	old[i] = nil // avoid memory leak
 	x.idx = -1   // for safety
+	// 更新堆空间
 	*h = old[:i]
 	return x
 }

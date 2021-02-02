@@ -24,6 +24,7 @@ package gnet
 
 import "github.com/panjf2000/gnet/internal/netpoll"
 
+// 不仅处理客户端的读写，还处理接收客户端的请求
 func (el *eventloop) handleEvent(fd int, filter int16) error {
 	if c, ok := el.connections[fd]; ok {
 		if filter == netpoll.EVFilterSock {
@@ -46,5 +47,6 @@ func (el *eventloop) handleEvent(fd int, filter int16) error {
 			return nil
 		}
 	}
+	// 如果连接不存在，则表示一个新的连接，因此接受的客户端的连接
 	return el.loopAccept(fd)
 }

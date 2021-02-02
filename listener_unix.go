@@ -45,6 +45,13 @@ func (ln *listener) Dup() (int, string, error) {
 	return netpoll.Dup(ln.fd)
 }
 
+// 归一化，选择不同的协议，进行初始化socket
+// socket
+// noblocking
+// bind
+// reusePort
+// listen
+
 func (ln *listener) normalize() (err error) {
 	switch ln.network {
 	case "tcp", "tcp4", "tcp6":

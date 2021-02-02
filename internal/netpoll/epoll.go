@@ -44,6 +44,7 @@ type Poller struct {
 // OpenPoller instantiates a poller.
 func OpenPoller() (poller *Poller, err error) {
 	poller = new(Poller)
+	// epoll_create
 	if poller.fd, err = unix.EpollCreate1(unix.EPOLL_CLOEXEC); err != nil {
 		poller = nil
 		err = os.NewSyscallError("epoll_create1", err)
@@ -56,6 +57,7 @@ func OpenPoller() (poller *Poller, err error) {
 		return
 	}
 	poller.wfdBuf = make([]byte, 8)
+	//
 	if err = poller.AddRead(poller.wfd); err != nil {
 		_ = poller.Close()
 		poller = nil
@@ -80,6 +82,7 @@ var (
 	b        = (*(*[8]byte)(unsafe.Pointer(&u)))[:]
 )
 
+// 唤醒阻塞在网络事件上的poller
 // Trigger wakes up the poller blocked in waiting for network-events and runs jobs in asyncJobQueue.
 func (p *Poller) Trigger(job internal.Job) (err error) {
 	if p.asyncJobQueue.Push(job) == 1 {
@@ -88,6 +91,7 @@ func (p *Poller) Trigger(job internal.Job) (err error) {
 	return os.NewSyscallError("write", err)
 }
 
+// 阻塞网络事件
 // Polling blocks the current goroutine, waiting for network-events.
 func (p *Poller) Polling(callback func(fd int, ev uint32) error) error {
 	el := newEventList(InitEvents)
@@ -102,6 +106,7 @@ func (p *Poller) Polling(callback func(fd int, ev uint32) error) error {
 
 		for i := 0; i < n; i++ {
 			if fd := int(el.events[i].Fd); fd != p.wfd {
+				// 调用回调函数
 				switch err = callback(fd, el.events[i].Events); err {
 				case nil:
 				case errors.ErrAcceptSocket, errors.ErrServerShutdown:

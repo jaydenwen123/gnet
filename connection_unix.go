@@ -46,10 +46,12 @@ type conn struct {
 	localAddr      net.Addr               // local addr
 	remoteAddr     net.Addr               // remote addr
 	byteBuffer     *bytebuffer.ByteBuffer // bytes buffer for buffering current packet and data in ring-buffer
+	// 来自客户端的数据
 	inboundBuffer  *ringbuffer.RingBuffer // buffer for data from client
+	// 准备写给客户端的数据
 	outboundBuffer *ringbuffer.RingBuffer // buffer for data that is ready to write to client
 }
-
+// 封装新的连接
 func newTCPConn(fd int, el *eventloop, sa unix.Sockaddr, remoteAddr net.Addr) (c *conn) {
 	c = &conn{
 		fd:             fd,
@@ -62,6 +64,7 @@ func newTCPConn(fd int, el *eventloop, sa unix.Sockaddr, remoteAddr net.Addr) (c
 	c.localAddr = el.ln.lnaddr
 	c.remoteAddr = remoteAddr
 	if el.svr.opts.TCPKeepAlive > 0 {
+		// 设置长连接
 		if proto := el.ln.network; proto == "tcp" || proto == "unix" {
 			_ = netpoll.SetKeepAlive(fd, int(el.svr.opts.TCPKeepAlive/time.Second))
 		}
@@ -102,11 +105,13 @@ func (c *conn) releaseUDP() {
 func (c *conn) open(buf []byte) {
 	n, err := unix.Write(c.fd, buf)
 	if err != nil {
+		// 写失败，写到outbuffer中
 		_, _ = c.outboundBuffer.Write(buf)
 		return
 	}
 
 	if n < len(buf) {
+		// 超过的数据写入到outbuffer中
 		_, _ = c.outboundBuffer.Write(buf[n:])
 	}
 }
@@ -117,15 +122,18 @@ func (c *conn) read() ([]byte, error) {
 
 func (c *conn) write(buf []byte) (err error) {
 	var outFrame []byte
+	// 先编码
 	if outFrame, err = c.codec.Encode(c, buf); err != nil {
 		return
 	}
+	// 如果非空，则写到outbuffer中
 	if !c.outboundBuffer.IsEmpty() {
 		_, _ = c.outboundBuffer.Write(outFrame)
 		return
 	}
 
 	var n int
+	// fd中写出去
 	if n, err = unix.Write(c.fd, outFrame); err != nil {
 		if err == unix.EAGAIN {
 			_, _ = c.outboundBuffer.Write(outFrame)
@@ -135,7 +143,9 @@ func (c *conn) write(buf []byte) (err error) {
 		return c.loop.loopCloseConn(c, os.NewSyscallError("write", err))
 	}
 	if n < len(outFrame) {
+		// 写满了，然后剩余的数据写入到outBuffer中
 		_, _ = c.outboundBuffer.Write(outFrame[n:])
+		// 更新读写事件
 		err = c.loop.poller.ModReadWrite(c.fd)
 	}
 	return
@@ -148,9 +158,12 @@ func (c *conn) sendTo(buf []byte) error {
 // ================================= Public APIs of gnet.Conn =================================
 
 func (c *conn) Read() []byte {
+	// buffer-inbuffer
+	// 读的时候，如果数超过了buffer，则读到inbuffer中
 	if c.inboundBuffer.IsEmpty() {
 		return c.buffer
 	}
+	// 拼接buffer+inbuffer数据
 	c.byteBuffer = c.inboundBuffer.WithByteBuffer(c.buffer)
 	return c.byteBuffer.Bytes()
 }
@@ -162,6 +175,7 @@ func (c *conn) ResetBuffer() {
 	c.byteBuffer = nil
 }
 
+// 读取N个字节的数据
 func (c *conn) ReadN(n int) (size int, buf []byte) {
 	inBufferLen := c.inboundBuffer.Length()
 	tempBufferLen := len(c.buffer)
@@ -173,6 +187,7 @@ func (c *conn) ReadN(n int) (size int, buf []byte) {
 		buf = c.buffer[:n]
 		return
 	}
+	// 读n
 	head, tail := c.inboundBuffer.LazyRead(n)
 	c.byteBuffer = bytebuffer.Get()
 	_, _ = c.byteBuffer.Write(head)
@@ -221,6 +236,7 @@ func (c *conn) BufferLength() int {
 }
 
 func (c *conn) AsyncWrite(buf []byte) error {
+	// 触发异步写
 	return c.loop.poller.Trigger(func() (err error) {
 		if c.opened {
 			err = c.write(buf)

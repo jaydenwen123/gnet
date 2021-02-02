@@ -63,6 +63,7 @@ func (el *eventloop) closeAllConns() {
 	}
 }
 
+// 开始event的阻塞
 func (el *eventloop) loopRun(lockOSThread bool) {
 	if lockOSThread {
 		runtime.LockOSThread()
@@ -82,16 +83,18 @@ func (el *eventloop) loopRun(lockOSThread bool) {
 		go el.loopTicker()
 	}
 
+	// 阻塞在这个地方，handleEvent里面最后还调用了loopAccept
 	err := el.poller.Polling(el.handleEvent)
 	el.svr.logger.Infof("Event-loop(%d) is exiting due to error: %v", el.idx, err)
 }
 
 func (el *eventloop) loopAccept(fd int) error {
 	if fd == el.ln.fd {
+		// udp的话，循环读取
 		if el.ln.network == "udp" {
 			return el.loopReadUDP(fd)
 		}
-
+		// 处理非udp的连接
 		nfd, sa, err := unix.Accept(fd)
 		if err != nil {
 			if err == unix.EAGAIN {
@@ -124,6 +127,7 @@ func (el *eventloop) loopOpen(c *conn) error {
 		c.open(out)
 	}
 
+	// 如果写缓冲不为空，则说明有数据可写，因此注册写事件，epoll_ctl(fd,add,write)
 	if !c.outboundBuffer.IsEmpty() {
 		_ = el.poller.AddWrite(c.fd)
 	}
@@ -140,8 +144,9 @@ func (el *eventloop) loopRead(c *conn) error {
 		return el.loopCloseConn(c, os.NewSyscallError("read", err))
 	}
 	c.buffer = el.packet[:n]
-
+	// read->decode->doLogic->encode->write
 	for inFrame, _ := c.read(); inFrame != nil; inFrame, _ = c.read() {
+		// React:做具体的业务逻辑
 		out, action := el.eventHandler.React(inFrame, c)
 		if out != nil {
 			el.eventHandler.PreWrite()
@@ -179,6 +184,7 @@ func (el *eventloop) loopWrite(c *conn) error {
 		}
 		return el.loopCloseConn(c, os.NewSyscallError("write", err))
 	}
+	// 移动指针
 	c.outboundBuffer.Shift(n)
 
 	if n == len(head) && tail != nil {
@@ -192,6 +198,7 @@ func (el *eventloop) loopWrite(c *conn) error {
 		c.outboundBuffer.Shift(n)
 	}
 
+	// 写缓冲空，更新为监听可读事件
 	if c.outboundBuffer.IsEmpty() {
 		_ = el.poller.ModRead(c.fd)
 	}
@@ -216,6 +223,7 @@ func (el *eventloop) loopCloseConn(c *conn, err error) (rerr error) {
 		}
 	}
 
+	// epoll中删除掉该fd
 	if err0, err1 := el.poller.Delete(c.fd), unix.Close(c.fd); err0 == nil && err1 == nil {
 		delete(el.connections, c.fd)
 		el.calibrateCallback(el, -1)
@@ -241,9 +249,9 @@ func (el *eventloop) loopCloseConn(c *conn, err error) (rerr error) {
 }
 
 func (el *eventloop) loopWake(c *conn) error {
-	//if co, ok := el.connections[c.fd]; !ok || co != c {
+	// if co, ok := el.connections[c.fd]; !ok || co != c {
 	//	return nil // ignore stale wakes.
-	//}
+	// }
 	out, action := el.eventHandler.React(nil, c)
 	if out != nil {
 		if err := c.write(out); err != nil {
@@ -297,6 +305,10 @@ func (el *eventloop) handleAction(c *conn, action Action) error {
 }
 
 func (el *eventloop) loopReadUDP(fd int) error {
+	// 读取客户端的数据，然后处理业务逻辑，最后写回客户端
+	// Recvfrom
+	// React
+	// sendTo
 	n, sa, err := unix.Recvfrom(fd, el.packet, 0)
 	if err != nil {
 		if err == unix.EAGAIN || err == unix.EWOULDBLOCK {

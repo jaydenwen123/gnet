@@ -34,6 +34,7 @@ var CRLFByte = byte('\n')
 
 type (
 	// ICodec is the interface of gnet codec.
+	// 编解码接口
 	ICodec interface {
 		// Encode encodes frames upon server responses into TCP stream.
 		Encode(c Conn, buf []byte) ([]byte, error)

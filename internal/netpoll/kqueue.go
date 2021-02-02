@@ -41,6 +41,7 @@ type Poller struct {
 // OpenPoller instantiates a poller.
 func OpenPoller() (poller *Poller, err error) {
 	poller = new(Poller)
+	// open Kqueue
 	if poller.fd, err = unix.Kqueue(); err != nil {
 		poller = nil
 		err = os.NewSyscallError("kqueue", err)
@@ -79,6 +80,7 @@ func (p *Poller) Trigger(job internal.Job) (err error) {
 	return os.NewSyscallError("kevent trigger", err)
 }
 
+// 阻塞在Kevent上
 // Polling blocks the current goroutine, waiting for network-events.
 func (p *Poller) Polling(callback func(fd int, filter int16) error) error {
 	el := newEventList(InitEvents)

@@ -35,6 +35,7 @@ var ErrIsEmpty = errors.New("ring-buffer is empty")
 type RingBuffer struct {
 	buf     []byte
 	size    int
+	// 用来计算余数
 	mask    int
 	r       int // next position to read
 	w       int // next position to write
@@ -65,6 +66,7 @@ func (r *RingBuffer) LazyRead(len int) (head []byte, tail []byte) {
 		return
 	}
 
+	// r~w
 	if r.w > r.r {
 		n := r.w - r.r // Length
 		if n > len {
@@ -74,6 +76,7 @@ func (r *RingBuffer) LazyRead(len int) (head []byte, tail []byte) {
 		return
 	}
 
+	// r~size,0~w
 	n := r.size - r.r + r.w // Length
 	if n > len {
 		n = len
@@ -82,6 +85,7 @@ func (r *RingBuffer) LazyRead(len int) (head []byte, tail []byte) {
 	if r.r+n <= r.size {
 		head = r.buf[r.r : r.r+n]
 	} else {
+		// 分散在两段，通过head装r~size，tail装0~w的数据
 		c1 := r.size - r.r
 		head = r.buf[r.r:]
 		c2 := n - c1
@@ -147,32 +151,44 @@ func (r *RingBuffer) Read(p []byte) (n int, err error) {
 	}
 
 	if r.w > r.r {
+		// 可读r~w
 		n = r.w - r.r
+		// 可读的数据大于buf
 		if n > len(p) {
 			n = len(p)
 		}
 		copy(p, r.buf[r.r:r.r+n])
+		// 更新读的下标
 		r.r += n
+		// 当读到r==w时，为空
 		if r.r == r.w {
 			r.isEmpty = true
 		}
 		return
 	}
 
+	// w<=r
+	// 可读数据r~size,0~w
 	n = r.size - r.r + r.w
 	if n > len(p) {
 		n = len(p)
 	}
 
+	// 读的数据在r~size之间
 	if r.r+n <= r.size {
 		copy(p, r.buf[r.r:r.r+n])
+	// 	读的数据分散在两段
 	} else {
 		c1 := r.size - r.r
+		// 第一段
 		copy(p, r.buf[r.r:])
+		// 第二段，要读取的数据
 		c2 := n - c1
 		copy(p[c1:], r.buf[:c2])
 	}
+	// 最终更新r的信息，取余
 	r.r = (r.r + n) & r.mask
+	// 如果读完了，则设置为空
 	if r.r == r.w {
 		r.isEmpty = true
 	}
@@ -214,22 +230,32 @@ func (r *RingBuffer) Write(p []byte) (n int, err error) {
 		r.malloc(n - free)
 	}
 
+	// w>r大时，c1=(w~size),(0~r)都可写
 	if r.w >= r.r {
+
 		c1 := r.size - r.w
+		// 判断如果
 		if c1 >= n {
+			// 写到w开始的位置
 			copy(r.buf[r.w:], p)
+			// 增加w的偏移量
 			r.w += n
 		} else {
 			copy(r.buf[r.w:], p[:c1])
+			// 剩余要写的
 			c2 := n - c1
+			// 写入到0~r之间
 			copy(r.buf, p[c1:])
 			r.w = c2
+		// 	走到这儿时，w<r
 		}
 	} else {
+		// w<r,w~r之间可写
 		copy(r.buf[r.w:], p)
 		r.w += n
 	}
 
+	// 循环写
 	if r.w == r.size {
 		r.w = 0
 	}
@@ -263,11 +289,12 @@ func (r *RingBuffer) Length() int {
 		}
 		return r.size
 	}
-
+	// 可读r~w
 	if r.w > r.r {
 		return r.w - r.r
 	}
-
+	// r.w<r.r
+	// 可读：r~size,0~w,
 	return r.size - r.r + r.w
 }
 
@@ -284,6 +311,8 @@ func (r *RingBuffer) Cap() int {
 // Free returns the length of available bytes to write.
 func (r *RingBuffer) Free() int {
 	if r.r == r.w {
+		// 可能是空，也可能是满
+		// 下面进行判断
 		if r.isEmpty {
 			return r.size
 		}
@@ -291,9 +320,11 @@ func (r *RingBuffer) Free() int {
 	}
 
 	if r.w < r.r {
+		// 可写空间w~r
 		return r.r - r.w
 	}
-
+	// r.w > r.r
+	// 可写空间：0~r.r，r.size-r.w
 	return r.size - r.w + r.r
 }
 
@@ -307,6 +338,7 @@ func (r *RingBuffer) ByteBuffer() *bytebuffer.ByteBuffer {
 	if r.isEmpty {
 		return nil
 	} else if r.w == r.r {
+		// 满了，直接返回所有的数据
 		bb := bytebuffer.Get()
 		_, _ = bb.Write(r.buf[r.r:])
 		_, _ = bb.Write(r.buf[:r.w])
@@ -314,11 +346,12 @@ func (r *RingBuffer) ByteBuffer() *bytebuffer.ByteBuffer {
 	}
 
 	bb := bytebuffer.Get()
+	// 返回r~w的数据
 	if r.w > r.r {
 		_, _ = bb.Write(r.buf[r.r:r.w])
 		return bb
 	}
-
+	// 分两段，r~size,0~w
 	_, _ = bb.Write(r.buf[r.r:])
 
 	if r.w != 0 {
@@ -375,11 +408,14 @@ func (r *RingBuffer) Reset() {
 	r.isEmpty = true
 }
 
+// 扩容
 func (r *RingBuffer) malloc(cap int) {
 	var newCap int
+	// size==0空的话，直接初始化为1<<12=2^12=2^10*2^2=4*1024=4096byte=4k
 	if r.size == 0 && initSize >= cap {
 		newCap = initSize
 	} else {
+		//  1000->1024
 		newCap = internal.CeilToPowerOfTwo(r.size + cap)
 	}
 	newBuf := make([]byte, newCap)

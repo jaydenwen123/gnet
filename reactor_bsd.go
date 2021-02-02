@@ -35,7 +35,7 @@ func (svr *server) activateMainReactor(lockOSThread bool) {
 	}
 
 	defer svr.signalShutdown()
-
+	// 调用epoll_wait阻塞，等待客户端连接
 	err := svr.mainLoop.poller.Polling(func(fd int, filter int16) error { return svr.acceptNewConnection(fd) })
 	svr.logger.Infof("Main reactor is exiting due to error: %v", err)
 }
@@ -58,21 +58,27 @@ func (svr *server) activateSubReactor(el *eventloop, lockOSThread bool) {
 		go el.loopTicker()
 	}
 
+	// 这个内部会调用epoll_wait方法，阻塞在这个地方
 	err := el.poller.Polling(func(fd int, filter int16) error {
+		// 取得当前的client 连接
 		if c, ack := el.connections[fd]; ack {
 			if filter == netpoll.EVFilterSock {
 				return el.loopCloseConn(c, nil)
 			}
 
+
 			switch c.outboundBuffer.IsEmpty() {
 			// Don't change the ordering of processing EVFILT_WRITE | EVFILT_READ | EV_ERROR/EV_EOF unless you're 100%
 			// sure what you're doing!
 			// Re-ordering can easily introduce bugs and bad side-effects, as I found out painfully in the past.
+
+			// 如果写的buffer不为空，则说明有数据可写
 			case false:
 				if filter == netpoll.EVFilterWrite {
 					return el.loopWrite(c)
 				}
 				return nil
+			// 	如果写的buffer为空，没有写的数据，则处理读的事件
 			case true:
 				if filter == netpoll.EVFilterRead {
 					return el.loopRead(c)
