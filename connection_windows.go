@@ -66,12 +66,14 @@ func packTCPConn(c *stdConn, buf []byte) *tcpConn {
 	return packet
 }
 
+// udp连接
 func packUDPConn(c *stdConn, buf []byte) *udpConn {
 	_, _ = c.buffer.Write(buf)
 	packet := &udpConn{c: c}
 	return packet
 }
 
+// 新建链接
 func newTCPConn(conn net.Conn, el *eventloop) (c *stdConn) {
 	c = &stdConn{
 		conn:          conn,

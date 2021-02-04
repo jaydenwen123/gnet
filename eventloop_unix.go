@@ -161,13 +161,14 @@ func (el *eventloop) loopRead(c *conn) error {
 		case Shutdown:
 			return gerrors.ErrServerShutdown
 		}
-
+		//
 		// Check the status of connection every loop since it might be closed during writing data back to client due to
 		// some kind of system error.
 		if !c.opened {
 			return nil
 		}
 	}
+	// 读到的数据为空时
 	_, _ = c.inboundBuffer.Write(c.buffer)
 
 	return nil
@@ -269,6 +270,7 @@ func (el *eventloop) loopTicker() {
 		err   error
 	)
 	for {
+		// 相当于定时任务
 		err = el.poller.Trigger(func() (err error) {
 			delay, action := el.eventHandler.Tick()
 			el.svr.ticktock <- delay

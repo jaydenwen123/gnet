@@ -97,6 +97,7 @@ func (el *eventloop) loopRun(lockOSThread bool) {
 	}
 }
 
+// 加入到管理中
 func (el *eventloop) loopAccept(c *stdConn) error {
 	el.connections[c] = struct{}{}
 	el.calibrateCallback(el, 1)

@@ -25,7 +25,7 @@ import (
 )
 
 // Dup still hangs in the air.
-func Dup(fd int) (int, string, error) {
+func Dup(fd int) (int, string , error) {
 	// TODO: Implement dup() on Windows.
 	return -1, "dup", syscall.EWINDOWS
 }

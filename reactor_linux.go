@@ -58,12 +58,15 @@ func (svr *server) activateSubReactor(el *eventloop, lockOSThread bool) {
 
 	err := el.poller.Polling(func(fd int, ev uint32) error {
 		if c, ack := el.connections[fd]; ack {
+			// 所以先判断是否有写出的数据
 			switch c.outboundBuffer.IsEmpty() {
 			// Don't change the ordering of processing EPOLLOUT | EPOLLRDHUP / EPOLLIN unless you're 100%
 			// sure what you're doing!
 			// Re-ordering can easily introduce bugs and bad side-effects, as I found out painfully in the past.
+			// 	采用epoll的状态来判断
 			case false:
 				if ev&netpoll.OutEvents != 0 {
+					// 先写出去
 					return el.loopWrite(c)
 				}
 				return nil

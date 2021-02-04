@@ -73,6 +73,7 @@ func (svr *server) activateSubReactor(el *eventloop, lockOSThread bool) {
 			// Re-ordering can easily introduce bugs and bad side-effects, as I found out painfully in the past.
 
 			// 如果写的buffer不为空，则说明有数据可写
+			// 	采用kqueue的状态来判断
 			case false:
 				if filter == netpoll.EVFilterWrite {
 					return el.loopWrite(c)

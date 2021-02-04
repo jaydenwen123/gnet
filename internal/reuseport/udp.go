@@ -117,6 +117,7 @@ func udpReusablePort(proto, addr string, reusePort bool) (fd int, netAddr net.Ad
 		return
 	}
 
+	// socket()->fd
 	if fd, err = sysSocket(family, unix.SOCK_DGRAM, unix.IPPROTO_UDP); err != nil {
 		err = os.NewSyscallError("socket", err)
 		return
@@ -133,6 +134,7 @@ func udpReusablePort(proto, addr string, reusePort bool) (fd int, netAddr net.Ad
 		return
 	}
 
+	// reuseAddr
 	if err = os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)); err != nil {
 		return
 	}

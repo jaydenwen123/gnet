@@ -33,6 +33,7 @@ import (
 
 var listenerBacklogMaxSize = maxListenerBacklog()
 
+// tcp ,127.0.0.1:8000
 func getTCPSockaddr(proto, addr string) (sa unix.Sockaddr, family int, tcpAddr *net.TCPAddr, err error) {
 	var tcpVersion string
 
@@ -130,6 +131,7 @@ func tcpReusablePort(proto, addr string, reusePort bool) (fd int, netAddr net.Ad
 		}
 	}()
 
+	// 重用地址
 	if err = os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)); err != nil {
 		return
 	}
@@ -146,7 +148,6 @@ func tcpReusablePort(proto, addr string, reusePort bool) (fd int, netAddr net.Ad
 	}
 
 	// listen
-
 	// Set backlog size to the maximum.
 	err = os.NewSyscallError("listen", unix.Listen(fd, listenerBacklogMaxSize))
 

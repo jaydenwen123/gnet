@@ -55,6 +55,7 @@ func (svr *server) acceptNewConnection(fd int) error {
 		if err = el.poller.AddRead(nfd); err != nil {
 			return
 		}
+		// 添加到链接管理中
 		el.connections[nfd] = c
 		err = el.loopOpen(c)
 		return
