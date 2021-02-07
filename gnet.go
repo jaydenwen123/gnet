@@ -258,10 +258,14 @@ func Serve(eventHandler EventHandler, protoAddr string, opts ...Option) (err err
 			"while you are trying to set up %d\n", options.NumEventLoop)
 		return errors.ErrTooManyEventLoopThreads
 	}
-
+	// 从tcp://127.0.0.1:12解析network和addr
 	network, addr := parseProtoAddr(protoAddr)
 
 	var ln *listener
+	// 初始化listener
+	// 1.fd=socket()
+	// 2.bind(fd,port)
+	// 3.listen(fd)
 	if ln, err = initListener(network, addr, options.ReusePort); err != nil {
 		return
 	}

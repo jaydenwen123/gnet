@@ -94,7 +94,7 @@ func (svr *server) startSubReactors() {
 		return true
 	})
 }
-// udp的话会走到这个
+// udp和端口复用的话会走到这个
 func (svr *server) activateEventLoops(numEventLoop int) (err error) {
 	// Create loops locally and bind the listeners.
 	for i := 0; i < numEventLoop; i++ {
