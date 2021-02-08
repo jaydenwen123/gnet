@@ -37,8 +37,8 @@ type RingBuffer struct {
 	size    int
 	// 用来计算余数
 	mask    int
-	r       int // next position to read
-	w       int // next position to write
+	r       int // next position to read   ->rear
+	w       int // next position to write  ->front
 	isEmpty bool
 }
 
@@ -47,6 +47,8 @@ func New(size int) *RingBuffer {
 	if size == 0 {
 		return &RingBuffer{isEmpty: true}
 	}
+	// 1000->1024
+	// 512->512
 	size = internal.CeilToPowerOfTwo(size)
 	return &RingBuffer{
 		buf:     make([]byte, size),
@@ -141,6 +143,7 @@ func (r *RingBuffer) Shift(n int) {
 // Callers should always process the n > 0 bytes returned before considering the error err.
 // Doing so correctly handles I/O errors that happen after reading some bytes and also both of the allowed EOF
 // behaviors.
+// 对应出队操作
 func (r *RingBuffer) Read(p []byte) (n int, err error) {
 	if len(p) == 0 {
 		return 0, nil
@@ -150,6 +153,7 @@ func (r *RingBuffer) Read(p []byte) (n int, err error) {
 		return 0, ErrIsEmpty
 	}
 
+	// r~w
 	if r.w > r.r {
 		// 可读r~w
 		n = r.w - r.r
@@ -225,8 +229,10 @@ func (r *RingBuffer) Write(p []byte) (n int, err error) {
 		return 0, nil
 	}
 
+	// 扩容
 	free := r.Free()
 	if n > free {
+		// 扩容
 		r.malloc(n - free)
 	}
 
@@ -366,6 +372,7 @@ func (r *RingBuffer) ByteBuffer() *bytebuffer.ByteBuffer {
 func (r *RingBuffer) WithByteBuffer(b []byte) *bytebuffer.ByteBuffer {
 	if r.isEmpty {
 		return &bytebuffer.ByteBuffer{B: b}
+	// 	满
 	} else if r.w == r.r {
 		bb := bytebuffer.Get()
 		_, _ = bb.Write(r.buf[r.r:])
