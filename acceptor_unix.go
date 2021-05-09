@@ -29,8 +29,9 @@ import (
 	"github.com/panjf2000/gnet/internal/netpoll"
 	"golang.org/x/sys/unix"
 )
-// 接收新的客户端连接
+// 接受新的客户端连接
 func (svr *server) acceptNewConnection(fd int) error {
+	// accept()
 	nfd, sa, err := unix.Accept(fd)
 	if err != nil {
 		if err == unix.EAGAIN {
@@ -38,7 +39,7 @@ func (svr *server) acceptNewConnection(fd int) error {
 		}
 		return errors.ErrAcceptSocket
 	}
-	// 设置非阻塞
+	// 设置非阻塞nonblocking
 	if err = os.NewSyscallError("fcntl nonblock", unix.SetNonblock(nfd, true)); err != nil {
 		return err
 	}

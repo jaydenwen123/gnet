@@ -145,6 +145,7 @@ func (svr *server) startEventLoops() {
 
 func (svr *server) activateReactors(numEventLoop int) error {
 	for i := 0; i < numEventLoop; i++ {
+		// 构建一个epoll
 		if p, err := netpoll.OpenPoller(); err == nil {
 			el := new(eventloop)
 			// 这儿listener是同一个，没啥关系，因为其他的actor不会监听客户端连接
@@ -155,6 +156,7 @@ func (svr *server) activateReactors(numEventLoop int) error {
 			el.connections = make(map[int]*conn)
 			el.eventHandler = svr.eventHandler
 			el.calibrateCallback = svr.lb.calibrate
+			// 加入到负载均衡的对象中
 			svr.lb.register(el)
 		} else {
 			return err

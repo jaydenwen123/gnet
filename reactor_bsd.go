@@ -53,7 +53,7 @@ func (svr *server) activateSubReactor(el *eventloop, lockOSThread bool) {
 		}
 		svr.signalShutdown()
 	}()
-
+	// mainReactor 的idx为-1
 	if el.idx == 0 && svr.opts.Ticker {
 		go el.loopTicker()
 	}
