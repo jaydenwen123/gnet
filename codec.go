@@ -80,6 +80,7 @@ func (cc *BuiltInFrameCodec) Decode(c Conn) ([]byte, error) {
 	if len(buf) == 0 {
 		return nil, nil
 	}
+	// 清空buffer
 	c.ResetBuffer()
 	return buf, nil
 }
@@ -136,6 +137,7 @@ func (cc *FixedLengthFrameCodec) Encode(c Conn, buf []byte) ([]byte, error) {
 
 // Decode ...
 func (cc *FixedLengthFrameCodec) Decode(c Conn) ([]byte, error) {
+	// 读取n个长度
 	size, buf := c.ReadN(cc.frameLength)
 	if size == 0 {
 		return nil, errorset.ErrUnexpectedEOF
@@ -245,6 +247,7 @@ func (cc *LengthFieldBasedFrameCodec) Decode(c Conn) ([]byte, error) {
 		err    error
 	)
 	in = c.Read()
+	// 读取数据头信息
 	if cc.decoderConfig.LengthFieldOffset > 0 { // discard header(offset)
 		header, err = in.readN(cc.decoderConfig.LengthFieldOffset)
 		if err != nil {

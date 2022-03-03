@@ -34,7 +34,9 @@ func (svr *server) activateMainReactor(lockOSThread bool) {
 
 	defer svr.signalShutdown()
 
-	err := svr.mainLoop.poller.Polling(func(fd int, ev uint32) error { return svr.acceptNewConnection(fd) })
+	err := svr.mainLoop.poller.Polling(func(fd int, ev uint32) error {
+		return svr.acceptNewConnection(fd)
+	})
 	svr.logger.Infof("Main reactor is exiting due to error: %v", err)
 }
 

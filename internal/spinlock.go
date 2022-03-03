@@ -25,7 +25,7 @@ import (
 	"sync"
 	"sync/atomic"
 )
-
+//  自旋锁
 type spinLock uint32
 
 func (sl *spinLock) Lock() {

@@ -86,6 +86,7 @@ func (svr *server) closeEventLoops() {
 
 func (svr *server) startSubReactors() {
 	svr.lb.iterate(func(i int, el *eventloop) bool {
+		// 遍历其中的每一个eventloop
 		svr.wg.Add(1)
 		go func() {
 			svr.activateSubReactor(el, svr.opts.LockOSThread)
@@ -143,7 +144,7 @@ func (svr *server) startEventLoops() {
 	})
 }
 
-func (svr *server) activateReactors(numEventLoop int) error {
+func (svr *server) 	activateReactors(numEventLoop int) error {
 	for i := 0; i < numEventLoop; i++ {
 		// 构建一个epoll
 		if p, err := netpoll.OpenPoller(); err == nil {
@@ -162,11 +163,10 @@ func (svr *server) activateReactors(numEventLoop int) error {
 			return err
 		}
 	}
-
 	// 开始所有的subReactor
 	// Start sub reactors in background.
-	svr.startSubReactors()
 
+	svr.startSubReactors()
 	// epoll_create()
 	if p, err := netpoll.OpenPoller(); err == nil {
 		el := new(eventloop)
@@ -177,7 +177,6 @@ func (svr *server) activateReactors(numEventLoop int) error {
 		// 注册读事件，接收客户端连接
 		_ = el.poller.AddRead(el.ln.fd)
 		svr.mainLoop = el
-
 		// 开始mainReactor
 		// Start main reactor in background.
 		svr.wg.Add(1)
@@ -198,7 +197,6 @@ func (svr *server) start(numEventLoop int) error {
 		// 这个里面每个actor都可以接收客户端的连接，具体在loop_bsd的handleEvent中有体现loopAccept
 		return svr.activateEventLoops(numEventLoop)
 	}
-
 	return svr.activateReactors(numEventLoop)
 }
 
@@ -235,7 +233,8 @@ func (svr *server) stop(s Server) {
 	atomic.StoreInt32(&svr.inShutdown, 1)
 }
 
-func serve(eventHandler EventHandler, listener *listener, options *Options, protoAddr string) error {
+func serve(eventHandler EventHandler,
+	listener *listener, options *Options, protoAddr string) error {
 	// Figure out the correct number of loops/goroutines to use.
 	numEventLoop := 1
 	if options.Multicore {
@@ -293,6 +292,5 @@ func serve(eventHandler EventHandler, listener *listener, options *Options, prot
 	defer svr.stop(server)
 
 	serverFarm.Store(protoAddr, svr)
-
 	return nil
 }

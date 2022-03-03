@@ -40,7 +40,8 @@ func (svr *server) acceptNewConnection(fd int) error {
 		return errors.ErrAcceptSocket
 	}
 	// 设置非阻塞nonblocking
-	if err = os.NewSyscallError("fcntl nonblock", unix.SetNonblock(nfd, true)); err != nil {
+	if err = os.NewSyscallError("fcntl nonblock",
+		unix.SetNonblock(nfd, true)); err != nil {
 		return err
 	}
 

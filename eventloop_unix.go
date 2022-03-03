@@ -36,6 +36,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// 一个eventloop对象代表一个epoll实例
 type eventloop struct {
 	internalEventloop
 
@@ -168,7 +169,7 @@ func (el *eventloop) loopRead(c *conn) error {
 			return nil
 		}
 	}
-	// 读到的数据为空时
+	// 读到的数据为空时，把buffer数据写入到inboundBuffer中
 	_, _ = c.inboundBuffer.Write(c.buffer)
 
 	return nil
@@ -188,6 +189,7 @@ func (el *eventloop) loopWrite(c *conn) error {
 	// 移动指针
 	c.outboundBuffer.Shift(n)
 
+	// 写tail
 	if n == len(head) && tail != nil {
 		n, err = unix.Write(c.fd, tail)
 		if err != nil {
@@ -285,6 +287,7 @@ func (el *eventloop) loopTicker() {
 			el.svr.logger.Errorf("Failed to awake poller in event-loop(%d), error:%v, stopping ticker", el.idx, err)
 			break
 		}
+		// 睡眠多久，然后触发一次
 		if delay, open = <-el.svr.ticktock; open {
 			time.Sleep(delay)
 		} else {

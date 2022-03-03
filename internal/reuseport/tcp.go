@@ -115,12 +115,11 @@ func tcpReusablePort(proto, addr string, reusePort bool) (fd int, netAddr net.Ad
 		family   int
 		sockaddr unix.Sockaddr
 	)
-
 	if sockaddr, family, netAddr, err = getTCPSockaddr(proto, addr); err != nil {
 		return
 	}
-
 	// 创建socket fd
+	// fd=socket()
 	if fd, err = sysSocket(family, unix.SOCK_STREAM, unix.IPPROTO_TCP); err != nil {
 		err = os.NewSyscallError("socket", err)
 		return
@@ -130,15 +129,15 @@ func tcpReusablePort(proto, addr string, reusePort bool) (fd int, netAddr net.Ad
 			_ = unix.Close(fd)
 		}
 	}()
-
 	// 重用地址
-	if err = os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)); err != nil {
+	if err = os.NewSyscallError("setsockopt",
+		unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)); err != nil {
 		return
 	}
-
 	// 重用端口
 	if reusePort {
-		if err = os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)); err != nil {
+		if err = os.NewSyscallError("setsockopt",
+			unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)); err != nil {
 			return
 		}
 	}
@@ -150,6 +149,5 @@ func tcpReusablePort(proto, addr string, reusePort bool) (fd int, netAddr net.Ad
 	// listen
 	// Set backlog size to the maximum.
 	err = os.NewSyscallError("listen", unix.Listen(fd, listenerBacklogMaxSize))
-
 	return
 }

@@ -72,6 +72,15 @@ func newTCPConn(fd int, el *eventloop, sa unix.Sockaddr, remoteAddr net.Addr) (c
 	return
 }
 
+func newUDPConn(fd int, el *eventloop, sa unix.Sockaddr) *conn {
+	return &conn{
+		fd:         fd,
+		sa:         sa,
+		localAddr:  el.ln.lnaddr,
+		remoteAddr: netpoll.SockaddrToUDPAddr(sa),
+	}
+}
+
 func (c *conn) releaseTCP() {
 	c.opened = false
 	c.sa = nil
@@ -87,14 +96,7 @@ func (c *conn) releaseTCP() {
 	c.byteBuffer = nil
 }
 
-func newUDPConn(fd int, el *eventloop, sa unix.Sockaddr) *conn {
-	return &conn{
-		fd:         fd,
-		sa:         sa,
-		localAddr:  el.ln.lnaddr,
-		remoteAddr: netpoll.SockaddrToUDPAddr(sa),
-	}
-}
+
 
 func (c *conn) releaseUDP() {
 	c.ctx = nil
@@ -133,7 +135,7 @@ func (c *conn) write(buf []byte) (err error) {
 	}
 
 	var n int
-	// fd中写出去
+	// fd中写出去,写出错的话，写入到outtboundBuffer中
 	if n, err = unix.Write(c.fd, outFrame); err != nil {
 		if err == unix.EAGAIN {
 			_, _ = c.outboundBuffer.Write(outFrame)
@@ -142,6 +144,7 @@ func (c *conn) write(buf []byte) (err error) {
 		}
 		return c.loop.loopCloseConn(c, os.NewSyscallError("write", err))
 	}
+	// 没数据没出错，但没写完的话，将剩余的数据写入buffer中，并更新监听写事件
 	if n < len(outFrame) {
 		// 写满了，然后剩余的数据写入到outBuffer中
 		_, _ = c.outboundBuffer.Write(outFrame[n:])

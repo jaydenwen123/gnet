@@ -63,6 +63,7 @@ type Server struct {
 	Addr net.Addr
 
 	// NumEventLoop is the number of event-loops that the server is using.
+	// 事件循环的个数
 	NumEventLoop int
 
 	// ReusePort indicates whether SO_REUSEPORT is enable.

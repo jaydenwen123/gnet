@@ -98,6 +98,7 @@ func (p *Poller) Polling(callback func(fd int, ev uint32) error) error {
 	var wakenUp bool
 
 	for {
+		// epoll_wait()
 		n, err := unix.EpollWait(p.fd, el.events, -1)
 		if err != nil && err != unix.EINTR {
 			logging.DefaultLogger.Warnf("Error occurs in epoll: %v", os.NewSyscallError("epoll_wait", err))

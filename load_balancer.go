@@ -116,6 +116,7 @@ func (lb *roundRobinLoadBalancer) calibrate(el *eventloop, delta int32) {
 
 // ================================= Implementation of Least-Connections load-balancer =================================
 
+// 采用小根堆来实现最小连接数
 // Leverage min-heap to optimize Least-Connections load-balancing.
 type minEventLoopHeap []*eventloop
 

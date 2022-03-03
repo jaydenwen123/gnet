@@ -87,6 +87,7 @@ func (p *Poller) Polling(callback func(fd int, filter int16) error) error {
 	var wakenUp bool
 
 	for {
+		// 阻塞在这个方法上
 		n, err := unix.Kevent(p.fd, nil, el.events, nil)
 		if err != nil && err != unix.EINTR {
 			logging.DefaultLogger.Warnf("Error occurs in kqueue: %v", os.NewSyscallError("kevent wait", err))

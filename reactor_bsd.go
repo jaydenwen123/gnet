@@ -36,7 +36,9 @@ func (svr *server) activateMainReactor(lockOSThread bool) {
 
 	defer svr.signalShutdown()
 	// 调用epoll_wait阻塞，等待客户端连接
-	err := svr.mainLoop.poller.Polling(func(fd int, filter int16) error { return svr.acceptNewConnection(fd) })
+	err := svr.mainLoop.poller.Polling(func(fd int, filter int16) error {
+		return svr.acceptNewConnection(fd)
+	})
 	svr.logger.Infof("Main reactor is exiting due to error: %v", err)
 }
 
@@ -65,7 +67,6 @@ func (svr *server) activateSubReactor(el *eventloop, lockOSThread bool) {
 			if filter == netpoll.EVFilterSock {
 				return el.loopCloseConn(c, nil)
 			}
-
 
 			switch c.outboundBuffer.IsEmpty() {
 			// Don't change the ordering of processing EVFILT_WRITE | EVFILT_READ | EV_ERROR/EV_EOF unless you're 100%

@@ -47,11 +47,13 @@ func (ln *listener) normalize() (err error) {
 		sniffErrorAndLog(os.RemoveAll(ln.addr))
 		fallthrough
 	case "tcp", "tcp4", "tcp6":
+		// tcp listen
 		if ln.ln, err = net.Listen(ln.network, ln.addr); err != nil {
 			return
 		}
 		ln.lnaddr = ln.ln.Addr()
 	case "udp", "udp4", "udp6":
+		// udp listenPacket
 		if ln.pconn, err = net.ListenPacket(ln.network, ln.addr); err != nil {
 			return
 		}

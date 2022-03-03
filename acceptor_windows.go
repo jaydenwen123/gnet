@@ -36,6 +36,7 @@ func (svr *server) listenerRun(lockOSThread bool) {
 	defer func() { svr.signalShutdownWithErr(err) }()
 	var packet [0x10000]byte
 	for {
+		// udp的包
 		if svr.ln.pconn != nil {
 			// Read data from UDP socket.
 			n, addr, e := svr.ln.pconn.ReadFrom(packet[:])
